@@ -1,7 +1,6 @@
 import streamlit as st
 import tempfile
 import os
-import urllib.request
 
 st.title("🖼️ Step 1: Asset Vault & Source Import")
 st.caption("Upload local files, paste video URLs, or search social media topics directly to fetch videos for editing.")
@@ -70,9 +69,13 @@ with tab2:
                     downloaded = False
                 
                 if not downloaded:
-                    st.info("ℹ️ Direct download restricted by server firewall. Loading high-definition sample container!")
-                    sample_url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-                    urllib.request.urlretrieve(sample_url, out_path)
+                    st.info("ℹ️ Direct download restricted. Generating local cinematic container!")
+                    try:
+                        from moviepy.editor import ColorClip
+                    except ImportError:
+                        from moviepy import ColorClip
+                    clip = ColorClip(size=(1080, 1920), color=(20, 20, 35), duration=5.0)
+                    clip.write_videofile(out_path, fps=24, codec="libx264", audio=False, logger=None)
                 
                 st.session_state["assets"]["videos"].append({"name": f"URL: {direct_url[:25]}", "path": out_path})
                 st.session_state["remix_video_path"] = out_path
@@ -89,7 +92,6 @@ with tab3:
             with st.spinner(f"Searching social media for '{search_query}'..."):
                 try:
                     import yt_dlp
-                    # Search and fetch top 4 matching video entries
                     search_opts = {
                         'extract_flat': True,
                         'noplaylist': True,
@@ -103,7 +105,6 @@ with tab3:
                     st.error(f"Search error: {e}")
                     st.session_state["search_results"] = []
 
-    # Display search results with direct download buttons
     if "search_results" in st.session_state and st.session_state["search_results"]:
         st.markdown("### 🎬 Select a Video to Download & Edit")
         for idx, video in enumerate(st.session_state["search_results"]):
@@ -138,10 +139,14 @@ with tab3:
                             success = False
                             
                         if not success:
-                            st.info("ℹ️ Network restriction on this video. Loading cinematic sample container for your edit!")
-                            sample_url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-                            urllib.request.urlretrieve(sample_url, out_path)
+                            st.info("ℹ️ Network restriction on this video. Generating local cinematic container for your edit!")
+                            try:
+                                from moviepy.editor import ColorClip
+                            except ImportError:
+                                from moviepy import ColorClip
+                            clip = ColorClip(size=(1080, 1920), color=(25, 25, 35), duration=5.0)
+                            clip.write_videofile(out_path, fps=24, codec="libx264", audio=False, logger=None)
                             
                         st.session_state["assets"]["videos"].append({"name": title[:30], "path": out_path})
                         st.session_state["remix_video_path"] = out_path
-                        st.success(f"Successfully downloaded and loaded into studio! Proceed to **Step 2: Storyboard & Anim**.")
+                        st.success(f"Successfully loaded into studio! Proceed to **Step 2: Storyboard & Anim**.")
