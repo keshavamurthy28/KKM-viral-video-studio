@@ -7,12 +7,12 @@ from PIL import Image
 try:
     from moviepy.editor import (
         ImageClip, VideoFileClip, CompositeVideoClip, AudioFileClip, 
-        CompositeAudioClip, concatenate_videoclips
+        CompositeAudioClip, concatenate_videoclips, ColorClip
     )
 except ImportError:
     from moviepy import (
         ImageClip, VideoFileClip, CompositeVideoClip, AudioFileClip, 
-        CompositeAudioClip, concatenate_videoclips
+        CompositeAudioClip, concatenate_videoclips, ColorClip
     )
 
 st.title("🎵 Step 3: Multi-Track Audio & High-End Render Engine")
@@ -64,14 +64,13 @@ else:
                             download_success = False
                             
                     if not download_success:
-                        st.info("ℹ️ Using reliable sample video clip for testing!")
-                        import urllib.request
-                        sample_url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
-                        urllib.request.urlretrieve(sample_url, out_path)
-                        
-                    clip = VideoFileClip(out_path)
-                    clip = clip.resize(target_size)
-                    final_video = clip
+                        st.info("ℹ️ YouTube link restricted. Generating local canvas clip instantly with zero network dependencies!")
+                        # Generate a clean 5-second background clip locally (100% reliable)
+                        final_video = ColorClip(size=target_size, color=(20, 20, 30), duration=5.0)
+                    else:
+                        clip = VideoFileClip(out_path)
+                        clip = clip.resize(target_size)
+                        final_video = clip
                 else:
                     rendered_scene_clips = []
                     for scene in storyboard:
