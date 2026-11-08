@@ -1,25 +1,14 @@
 import streamlit as st
 
-st.set_page_config(
-    page_title="KKM Content Creation Engine",
-    page_icon="🎬",
-    layout="wide"
-)
+st.set_page_config(page_title="KKM Viral Video Studio", page_icon="🎬", layout="wide")
 
-st.title("🎬 KKM Advanced Content Studio")
+st.title("🎬 KKM Advanced Viral Video & Remix Studio")
 st.markdown("""
-### Turn Your Assets, Cartoons & Stories into Viral Short-Form Videos
+Welcome to your automated content creation engine! This studio allows you to:
+1. **Asset Vault**: Import social media videos via URL or upload local media assets.
+2. **Storyboard & Anim**: Remix social videos with your own commentary and thought overlays, or build custom image storyboards.
+3. **Audio & Render**: Mix multi-track audio, burn text overlays, and render high-definition 9:16 vertical shorts.
+4. **Download & Export**: Preview and download your finished MP4 files instantly.
 
-Use the sidebar navigation to step through the production workflow:
-
-1. **🖼️ Asset Vault:** Upload your images, character/cartoon cutouts, custom backgrounds, and audio tracks.
-2. **📜 Storyboard & Animation:** Sequence your story scenes, select pan/zoom visual motions, and configure animated subtitles.
-3. **🎵 Audio & Render:** Mix voiceover and background music with independent volume controls and build the video using FFmpeg.
-4. **📥 Download & Export:** Preview your final 9:16 short-form video render and download it for social platforms.
+Use the sidebar navigation to get started with **Step 1: Asset Vault**!
 """)
-
-# Initialize Session State
-if "assets" not in st.session_state:
-    st.session_state["assets"] = {"images": [], "cartoons": [], "backgrounds": [], "audio": []}
-if "storyboard" not in st.session_state:
-    st.session_state["storyboard"] = []
