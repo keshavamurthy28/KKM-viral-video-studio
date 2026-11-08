@@ -1,7 +1,6 @@
 import streamlit as st
 import tempfile
 import numpy as np
-import urllib.request
 from PIL import Image
 
 try:
@@ -44,20 +43,18 @@ else:
                     import yt_dlp
                     out_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
                     
-                    # Use direct extractor or default universal download stream
                     ydl_opts = {
                         'outtmpl': out_path,
-                        'format': 'bv*+ba/b'  # Fallback format selector
+                        'format': 'best',
+                        'noplaylist': True,
                     }
                     
                     try:
                         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                             ydl.download([video_url])
-                    except Exception:
-                        # Fallback if specific format fails: grab whatever stream is default
-                        ydl_opts = {'outtmpl': out_path}
-                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                            ydl.download([video_url])
+                    except Exception as yt_err:
+                        st.error(f"❌ Selected YouTube video is unavailable, private, or restricted. Please go back to **Step 1: Asset Vault** and choose a different video.")
+                        st.stop()
                         
                     clip = VideoFileClip(out_path)
                     clip = clip.resize(target_size)
