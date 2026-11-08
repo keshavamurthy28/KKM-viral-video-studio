@@ -2,134 +2,114 @@ import streamlit as st
 import tempfile
 import numpy as np
 import os
-from PIL import Image
+from PIL import Image, ImageDraw
 
 try:
     from moviepy.editor import (
         ImageClip, VideoFileClip, CompositeVideoClip, AudioFileClip, 
-        CompositeAudioClip, concatenate_videoclips, ColorClip
+        CompositeAudioClip, concatenate_videoclips
     )
 except ImportError:
     from moviepy import (
         ImageClip, VideoFileClip, CompositeVideoClip, AudioFileClip, 
-        CompositeAudioClip, concatenate_videoclips, ColorClip
+        CompositeAudioClip, concatenate_videoclips
     )
 
 st.title("🎵 Step 3: Multi-Track Audio & High-End Render Engine")
 
-storyboard_mode = st.session_state.get("storyboard_mode", None)
+creation_mode = st.session_state.get("creation_mode", "🔄 Remix Social Video with Thoughts")
+remix_config = st.session_state.get("remix_config", {})
+remix_video_path = st.session_state.get("remix_video_path", None)
 storyboard = st.session_state.get("storyboard", [])
-social_config = st.session_state.get("social_edit_config", None)
 assets = st.session_state.get("assets", {"audio": []})
 
-if not storyboard_mode and not social_config:
-    storyboard_mode = "social"
+bgm_volume = st.slider("Background Music Volume", 0.0, 1.0, 0.2)
+voice_volume = st.slider("Voiceover Volume", 0.0, 2.0, 1.0)
+target_size = (1080, 1920) # 9:16 Vertical Short
 
-if not storyboard_mode and not storyboard:
-    st.warning("⚠️ No configuration found. Please complete Step 2 first.")
-else:
-    st.subheader("Audio Settings")
-    bgm_volume = st.slider("Background Music Volume", 0.0, 1.0, 0.2)
-    voice_volume = st.slider("Voiceover Volume", 0.0, 2.0, 1.0)
-    
-    output_resolution = st.selectbox("Render Format Ratio", ["9:16 Vertical Short (1080x1920)", "16:9 Landscape (1920x1080)"])
-    target_size = (1080, 1920) if "9:16" in output_resolution else (1920, 1080)
-
-    if st.button("🚀 Render Final Video"):
-        try:
-            with st.spinner("Processing video and rendering edits..."):
-                final_video = None
+if st.button("🚀 Render Final Viral Video"):
+    try:
+        with st.spinner("Processing video frames, burning text thoughts, and mixing audio tracks..."):
+            final_video = None
+            
+            # --- PIPELINE A: REMIX SOCIAL VIDEO WITH THOUGHTS ---
+            if creation_mode == "🔄 Remix Social Video with Thoughts" and remix_video_path:
+                clip = VideoFileClip(remix_video_path)
+                max_dur = min(clip.duration, remix_config.get("duration", 15))
+                clip = clip.subclip(0, max_dur)
+                clip = clip.resize(target_size)
                 
-                if storyboard_mode == "social" or social_config:
-                    video_url = social_config.get("video_url") if social_config else st.session_state.get("selected_video_url")
+                top_text = remix_config.get("top_hook", "")
+                bottom_text = remix_config.get("bottom_thought", "")
+                
+                def add_captions(get_frame, t):
+                    frame = get_frame(t)
+                    img = Image.fromarray(frame)
+                    draw = ImageDraw.Draw(img)
                     
-                    import yt_dlp
-                    temp_dir = tempfile.mkdtemp()
-                    out_path = os.path.join(temp_dir, "downloaded_input.mp4")
+                    # Draw top box & text
+                    draw.rectangle([(50, 100), (1030, 240)], fill=(0, 0, 0, 200))
+                    draw.text((70, 120), top_text, fill=(255, 255, 255))
                     
-                    download_success = False
-                    if video_url:
-                        ydl_opts = {
-                            'outtmpl': out_path,
-                            'format': 'best',
-                            'noplaylist': True,
-                            'quiet': True,
-                        }
-                        try:
-                            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                                ydl.download([video_url])
-                            if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
-                                download_success = True
-                        except Exception:
-                            download_success = False
-                            
-                    # If YouTube blocks the download, smoothly generate a high-definition background canvas locally
-                    if not download_success:
-                        st.info("ℹ️ YouTube link restricted by server firewall. Generating a high-end 10-second motion canvas locally!")
-                        final_video = ColorClip(size=target_size, color=(15, 15, 25), duration=10.0)
+                    # Draw bottom box & text
+                    draw.rectangle([(50, 1500), (1030, 1800)], fill=(0, 0, 0, 200))
+                    draw.text((70, 1530), bottom_text, fill=(255, 255, 255))
+                    
+                    return np.array(img)
+                
+                final_video = clip.fl(add_captions)
+                
+            # --- PIPELINE B: CUSTOM STORYBOARD ---
+            else:
+                rendered_scene_clips = []
+                for scene in storyboard:
+                    raw_img = Image.open(scene["image_path"]).convert("RGB")
+                    raw_img = raw_img.resize(target_size, Image.Resampling.LANCZOS)
+                    img_np = np.array(raw_img)
+                    
+                    base_clip = ImageClip(img_np).set_duration(scene["duration"])
+                    duration = scene["duration"]
+                    
+                    if scene["motion"] == "Zoom In (Ken Burns)":
+                        base_clip = base_clip.resize(lambda t: 1.0 + 0.08 * (t / duration))
+                    elif scene["motion"] == "Pan Left to Right":
+                        base_clip = base_clip.set_position(lambda t: (int(-50 + 50 * (t / duration)), "center"))
+
+                    scene_composite = CompositeVideoClip([base_clip], size=target_size).set_duration(duration)
+                    rendered_scene_clips.append(scene_composite)
+
+                final_video = concatenate_videoclips(rendered_scene_clips, method="compose")
+
+            # --- MULTI-TRACK AUDIO MIXING ---
+            audio_tracks = []
+            for a in assets.get("audio", []):
+                if a["type"] == "voiceover":
+                    voice_clip = AudioFileClip(a["path"]).volumex(voice_volume)
+                    audio_tracks.append(voice_clip)
+                elif a["type"] == "bgm":
+                    bgm_clip = AudioFileClip(a["path"]).volumex(bgm_volume)
+                    if bgm_clip.duration < final_video.duration:
+                        bgm_clip = bgm_clip.loop(duration=final_video.duration)
                     else:
-                        clip = VideoFileClip(out_path)
-                        clip = clip.resize(target_size)
-                        final_video = clip
-                else:
-                    rendered_scene_clips = []
-                    for scene in storyboard:
-                        raw_img = Image.open(scene["image_path"]).convert("RGB")
-                        raw_img = raw_img.resize(target_size, Image.Resampling.LANCZOS)
-                        img_np = np.array(raw_img)
-                        base_clip = ImageClip(img_np).set_duration(scene["duration"])
-                        duration = scene["duration"]
-                        
-                        if scene["motion"] == "Zoom In (Ken Burns)":
-                            base_clip = base_clip.resize(lambda t: 1.0 + 0.08 * (t / duration))
-                        elif scene["motion"] == "Pan Left to Right":
-                            base_clip = base_clip.set_position(lambda t: (int(-50 + 50 * (t / duration)), "center"))
-                        elif scene["motion"] == "Pan Right to Left":
-                            base_clip = base_clip.set_position(lambda t: (int(0 - 50 * (t / duration)), "center"))
+                        bgm_clip = bgm_clip.set_duration(final_video.duration)
+                    audio_tracks.append(bgm_clip)
 
-                        layers = [base_clip]
-                        if scene.get("cartoon_path"):
-                            cartoon_img = Image.open(scene["cartoon_path"]).convert("RGBA")
-                            c_width = int(target_size[0] * 0.4)
-                            c_height = int(cartoon_img.height * (c_width / cartoon_img.width))
-                            cartoon_img = cartoon_img.resize((c_width, c_height), Image.Resampling.LANCZOS)
-                            cartoon_clip = ImageClip(np.array(cartoon_img), transparent=True).set_duration(duration).set_position(("center", "bottom"))
-                            layers.append(cartoon_clip)
-                            
-                        scene_composite = CompositeVideoClip(layers, size=target_size).set_duration(duration)
-                        rendered_scene_clips.append(scene_composite)
+            if audio_tracks:
+                final_audio = CompositeAudioClip(audio_tracks).set_duration(final_video.duration)
+                final_video = final_video.set_audio(final_audio)
 
-                    final_video = concatenate_videoclips(rendered_scene_clips, method="compose")
-
-                audio_tracks = []
-                for a in assets.get("audio", []):
-                    if a["type"] == "voiceover":
-                        voice_clip = AudioFileClip(a["path"]).volumex(voice_volume)
-                        audio_tracks.append(voice_clip)
-                    elif a["type"] == "bgm":
-                        bgm_clip = AudioFileClip(a["path"]).volumex(bgm_volume)
-                        if bgm_clip.duration < final_video.duration:
-                            bgm_clip = bgm_clip.loop(duration=final_video.duration)
-                        else:
-                            bgm_clip = bgm_clip.set_duration(final_video.duration)
-                        audio_tracks.append(bgm_clip)
-
-                if audio_tracks:
-                    final_audio = CompositeAudioClip(audio_tracks).set_duration(final_video.duration)
-                    final_video = final_video.set_audio(final_audio)
-
-                out_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4").name
-                final_video.write_videofile(
-                    out_file, 
-                    fps=24, 
-                    codec="libx264", 
-                    audio_codec="aac",
-                    threads=2,
-                    preset="ultrafast"
-                )
-                
-                st.session_state["rendered_video_path"] = out_file
-                st.success("🎉 Video rendered successfully! Proceed to Step 4 to preview and download.")
-                
-        except Exception as e:
-            st.error(f"Render Error: {e}")
+            out_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4").name
+            final_video.write_videofile(
+                out_file, 
+                fps=24, 
+                codec="libx264", 
+                audio_codec="aac",
+                threads=2,
+                preset="ultrafast"
+            )
+            
+            st.session_state["rendered_video_path"] = out_file
+            st.success("🎉 Video rendered successfully with your thoughts and commentary! Proceed to Step 4.")
+            
+    except Exception as e:
+        st.error(f"Render Error: {e}")
