@@ -1,19 +1,19 @@
 import streamlit as st
 
-st.title("🎞️ Step 2: Remix & Storyboard Studio")
-st.caption("Configure your commentary thoughts or custom storyboard scenes.")
+st.title("🎞️ Step 2: Storyboard, Commentary & Audio Assignment")
+st.caption("Configure your story script, assign voiceovers, and pick background music tracks.")
 
-assets = st.session_state.get("assets", {"videos": [], "images": []})
+assets = st.session_state.get("assets", {"videos": [], "images": [], "audio": []})
 
-mode = st.radio("Select Creation Mode:", ["🔄 Remix Social Video with Thoughts", "🎨 Custom Image Storyboard"])
+mode = st.radio("Select Creation Mode:", ["🔄 Remix Social Video with Thoughts", "🎨 Custom Storyboard with Audio & Voiceover"])
 st.session_state["creation_mode"] = mode
 
 if mode == "🔄 Remix Social Video with Thoughts":
     st.subheader("Social Video Commentary & Thought Overlays")
-    
     video_list = assets.get("videos", [])
+    
     if not video_list:
-        st.warning("⚠️ No videos found in Vault. Please import a video URL or upload one in Step 1.")
+        st.warning("⚠️ No videos found in Vault. Please import or search a video in Step 1.")
     else:
         video_names = [v["name"] for v in video_list]
         selected_name = st.selectbox("Select Source Video from Vault", video_names)
@@ -22,9 +22,9 @@ if mode == "🔄 Remix Social Video with Thoughts":
         
         st.video(selected_vid["path"])
         
-        st.markdown("### 💬 Your Thoughts & Commentary Script")
-        top_hook = st.text_input("Top Retention Hook (Headline)", "Wait until you see this part... 🤯")
-        bottom_thought = st.text_area("Your Core Thoughts / Commentary Script", "Here is my perspective on why this changes everything...")
+        st.markdown("### 💬 Your Story Script & Commentary")
+        top_hook = st.text_input("Top Hook / Story Headline", "Wait until you see this part... 🤯")
+        bottom_thought = st.text_area("Your Core Script Commentary", "Here is my perspective on this story...")
         trim_duration = st.slider("Clip Trim Duration (Seconds)", 3, 60, 15)
         
         st.session_state["remix_config"] = {
@@ -33,12 +33,21 @@ if mode == "🔄 Remix Social Video with Thoughts":
             "duration": trim_duration
         }
         
+        st.markdown("### 🎵 Available Audio Tracks in Vault")
+        audio_tracks = assets.get("audio", [])
+        if audio_tracks:
+            for a in audio_tracks:
+                st.write(f"- **{a['type'].upper()}**: {a.get('name', 'Audio Track')}")
+        else:
+            st.info("No custom audio added yet. You can search or record voiceover in Step 1.")
+
         if st.button("Save Remix Configuration"):
             st.success("Remix configuration saved! Proceed to Step 3.")
 
 else:
-    st.subheader("Custom Image Storyboard Builder")
+    st.subheader("Custom Storyboard Builder with Voiceover & Music")
     images_list = assets.get("images", [])
+    
     if not images_list:
         st.warning("⚠️ Please upload background images in Step 1 first.")
     else:
@@ -50,13 +59,15 @@ else:
                     duration = st.slider(f"Duration (s) {i}", 2, 10, 4, key=f"dur_{i}")
                     motion = st.selectbox(f"Motion Effect {i}", ["Zoom In (Ken Burns)", "Pan Left to Right", "Static"], key=f"mot_{i}")
                 with col2:
-                    caption = st.text_input(f"Scene Text / Thought {i}", key=f"cap_{i}")
+                    caption = st.text_input(f"Scene Script / Thought {i}", key=f"cap_{i}")
+                
                 storyboard.append({
                     "image_path": img["path"],
                     "duration": duration,
                     "motion": motion,
                     "caption": caption
                 })
+        
         st.session_state["storyboard"] = storyboard
         if st.button("Save Storyboard"):
             st.success("Storyboard saved successfully! Proceed to Step 3.")
