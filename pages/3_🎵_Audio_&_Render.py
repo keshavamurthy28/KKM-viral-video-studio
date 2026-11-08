@@ -17,7 +17,6 @@ except ImportError:
 
 st.title("🎵 Step 3: Multi-Track Audio & High-End Render Engine")
 
-# Check which mode was saved in Step 2
 storyboard_mode = st.session_state.get("storyboard_mode", None)
 storyboard = st.session_state.get("storyboard", [])
 social_config = st.session_state.get("social_edit_config", None)
@@ -42,17 +41,19 @@ else:
                 if storyboard_mode == "social" and social_config:
                     video_url = social_config["video_url"]
                     
-                    # Download social video via yt-dlp or direct link download
                     import yt_dlp
-                    ydl_opts = {'format': 'best[ext=mp4]/best', 'outtmpl': tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name}
+                    out_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
+                    
+                    # Robust yt-dlp options without strict format restrictions
+                    ydl_opts = {
+                        'outtmpl': out_path,
+                        'format': 'mp4/best'
+                    }
                     
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        info = ydl.extract_info(video_url, download=True)
-                        downloaded_path = ydl.prepare_filename(info)
+                        ydl.download([video_url])
                         
-                    clip = VideoFileClip(downloaded_path)
-                    
-                    # Resize to target layout
+                    clip = VideoFileClip(out_path)
                     clip = clip.resize(target_size)
                     final_video = clip
 
@@ -68,7 +69,6 @@ else:
                         base_clip = ImageClip(img_np).set_duration(scene["duration"])
                         duration = scene["duration"]
                         
-                        # Apply Motion Animations
                         if scene["motion"] == "Zoom In (Ken Burns)":
                             base_clip = base_clip.resize(lambda t: 1.0 + 0.08 * (t / duration))
                         elif scene["motion"] == "Pan Left to Right":
@@ -78,7 +78,6 @@ else:
 
                         layers = [base_clip]
                         
-                        # Apply Cartoon Overlay if present
                         if scene["cartoon_path"]:
                             cartoon_img = Image.open(scene["cartoon_path"]).convert("RGBA")
                             c_width = int(target_size[0] * 0.4)
@@ -115,7 +114,6 @@ else:
                     final_audio = CompositeAudioClip(audio_tracks).set_duration(final_video.duration)
                     final_video = final_video.set_audio(final_audio)
 
-                # Export Output File
                 out_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4").name
                 final_video.write_videofile(
                     out_file, 
