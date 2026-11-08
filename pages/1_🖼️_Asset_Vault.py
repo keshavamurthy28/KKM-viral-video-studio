@@ -32,7 +32,6 @@ with tab1:
         uploaded_voiceover = st.file_uploader("Upload Pre-Recorded Voiceover (.mp3, .wav)", type=["mp3", "wav"])
         uploaded_bgm = st.file_uploader("Upload Background Music (.mp3, .wav)", type=["mp3", "wav"])
 
-    # Live Browser Microphone Voice Recording
     st.markdown("---")
     st.markdown("#### 🎙️ Record Voiceover / Commentary Right Now")
     recorded_audio = st.audio_input("Click the microphone to record your story thoughts live:")
@@ -122,95 +121,4 @@ with tab3:
     if "search_results" in st.session_state and st.session_state["search_results"]:
         st.markdown("### 🎬 Select Video to Download for Edit")
         for idx, video in enumerate(st.session_state["search_results"]):
-            title = video.get('title', 'Unknown Title')
-            vid_url = f"https://www.youtube.com/watch?v={video.get('id', '')}"
-            col_info, col_btn = st.columns([3, 1])
-            with col_info:
-                st.write(f"**{idx+1}. {title}**")
-            with col_btn:
-                if st.button(f"⬇️ Use Video {idx+1}", key=f"dl_vid_{idx}"):
-                    with st.spinner("Downloading video..."):
-                        temp_dir = tempfile.mkdtemp()
-                        out_path = os.path.join(temp_dir, f"vid_{idx}.mp4")
-                        success = False
-                        try:
-                            import yt_dlp
-                            dl_opts = {'outtmpl': out_path, 'format': 'best[ext=mp4]/best', 'noplaylist': True, 'quiet': True}
-                            with yt_dlp.YoutubeDL(dl_opts) as ydl:
-                                ydl.download([vid_url])
-                            if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
-                                success = True
-                        except Exception:
-                            success = False
-                        if not success:
-                            try:
-                                from moviepy.editor import ColorClip
-                            except ImportError:
-                                from moviepy import ColorClip
-                            clip = ColorClip(size=(1080, 1920), color=(25, 25, 35), duration=5.0)
-                            clip.write_videofile(out_path, fps=24, codec="libx264", audio=False, logger=None)
-                        st.session_state["assets"]["videos"].append({"name": title[:30], "path": out_path})
-                        st.session_state["remix_video_path"] = out_path
-                        st.success("Video added to vault! Proceed to Step 2.")
-
-# --- TAB 4: AUDIO / MUSIC SEARCH ENGINE ---
-with tab4:
-    st.subheader("🎵 Search Songs, Background Music & Sound Effects")
-    audio_query = st.text_input("Audio / Music Search Keyword:", "epic devotional background music")
-    
-    if st.button("Search Audio Tracks"):
-        if audio_query:
-            with st.spinner(f"Searching audio for '{audio_query}'..."):
-                try:
-                    import yt_dlp
-                    search_opts = {'extract_flat': True, 'noplaylist': True, 'quiet': True}
-                    with yt_dlp.YoutubeDL(search_opts) as ydl:
-                        results = ydl.extract_info(f"ytsearch4:{audio_query} audio", download=False)
-                        st.session_state["audio_search_results"] = results.get('entries', [])
-                except Exception as e:
-                    st.error(f"Audio search error: {e}")
-                    st.session_state["audio_search_results"] = []
-
-    if "audio_search_results" in st.session_state and st.session_state["audio_search_results"]:
-        st.markdown("### 🎶 Select Audio Track to Download")
-        for idx, track in enumerate(st.session_state["audio_search_results"]):
-            title = track.get('title', 'Audio Track')
-            audio_url = f"https://www.youtube.com/watch?v={track.get('id', '')}"
-            
-            col_info, col_btn = st.columns([3, 1])
-            with col_info:
-                st.write(f"**{idx+1}. 🎵 {title}**")
-            with col_btn:
-                if st.button(f"⬇️ Add Track {idx+1}", key=f"dl_aud_{idx}"):
-                    with st.spinner("Downloading audio track..."):
-                        temp_dir = tempfile.mkdtemp()
-                        out_path = os.path.join(temp_dir, f"audio_{idx}.mp3")
-                        try:
-                            import yt_dlp
-                            dl_opts = {
-                                'outtmpl': out_path,
-                                'format': 'bestaudio/best',
-                                'postprocessors': [{
-                                    'key': 'FFmpegExtractAudio',
-                                    'preferredcodec': 'mp3',
-                                    'preferredquality': '192',
-                                }],
-                                'quiet': True,
-                            }
-                            with yt_dlp.YoutubeDL(dl_opts) as ydl:
-                                ydl.download([audio_url])
-                                
-                            # Fallback check if postprocessor output path format shifted
-                            if not os.path.exists(out_path):
-                                base_path, _ = os.path.splitext(out_path)
-                                if os.path.exists(base_path + ".mp3"):
-                                    out_path = base_path + ".mp3"
-                                    
-                            st.session_state["assets"]["audio"].append({
-                                "type": "bgm", 
-                                "path": out_path, 
-                                "name": f"Downloaded: {title[:25]}"
-                            })
-                            st.success(f"Added '{title[:25]}' to Background Music tracks!")
-                        except Exception as e:
-                            st.error(f"Audio download restricted: {e}")
+            title
