@@ -1,7 +1,12 @@
 import streamlit as st
 import tempfile
 import urllib.request
-from moviepy.editor import VideoFileClip, CompositeVideoClip, AudioFileClip
+
+# Safe import block for MoviePy compatibility
+try:
+    from moviepy.editor import VideoFileClip, CompositeVideoClip, AudioFileClip
+except ImportError:
+    from moviepy import VideoFileClip, CompositeVideoClip, AudioFileClip
 
 st.title("🎵 Step 3: Add Audio & Render Video")
 
@@ -12,18 +17,14 @@ if st.button("Render Final Video"):
         st.error("No video selected. Please go back to Step 1.")
     else:
         try:
-            # Step 1: Download raw video to temporary file
             with st.spinner("Downloading raw clip..."):
                 tfile = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
                 urllib.request.urlretrieve(st.session_state["selected_video_url"], tfile.name)
                 
-            # Step 2: Process video with MoviePy
             with st.spinner("Editing video and combining audio..."):
                 clip = VideoFileClip(tfile.name)
-                
                 final_video = clip
                 
-                # Apply audio if uploaded
                 if uploaded_audio is not None:
                     audio_tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
                     audio_tmp.write(uploaded_audio.read())
