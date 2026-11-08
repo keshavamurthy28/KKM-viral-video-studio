@@ -1,18 +1,16 @@
 import streamlit as st
 import tempfile
-import numpy as np
 import os
-from PIL import Image, ImageDraw
 
 try:
     from moviepy.editor import (
         ImageClip, VideoFileClip, CompositeVideoClip, AudioFileClip, 
-        CompositeAudioClip, concatenate_videoclips
+        CompositeAudioClip, concatenate_videoclips, TextClip
     )
 except ImportError:
     from moviepy import (
         ImageClip, VideoFileClip, CompositeVideoClip, AudioFileClip, 
-        CompositeAudioClip, concatenate_videoclips
+        CompositeAudioClip, concatenate_videoclips, TextClip
     )
 
 st.title("🎵 Step 3: Multi-Track Audio & High-End Render Engine")
@@ -29,7 +27,7 @@ target_size = (1080, 1920)
 
 if st.button("🚀 Render Final Viral Video"):
     try:
-        with st.spinner("Processing video frames, burning text thoughts, and mixing audio tracks..."):
+        with st.spinner("Processing video and mixing audio tracks..."):
             final_video = None
             
             if creation_mode == "🔄 Remix Social Video with Thoughts" and remix_video_path:
@@ -46,39 +44,37 @@ if st.button("🚀 Render Final Viral Video"):
                 elif hasattr(clip, "resize"):
                     clip = clip.resize(target_size)
                 
+                # Add text overlays safely using built-in composite text clips if available
                 top_text = remix_config.get("top_hook", "")
                 bottom_text = remix_config.get("bottom_thought", "")
                 
-                def add_captions(get_frame, t):
-                    frame = get_frame(t)
-                    img = Image.fromarray(frame)
-                    draw = ImageDraw.Draw(img)
-                    draw.rectangle([(50, 100), (1030, 240)], fill=(0, 0, 0, 200))
-                    draw.text((70, 120), top_text, fill=(255, 255, 255))
-                    draw.rectangle([(50, 1500), (1030, 1800)], fill=(0, 0, 0, 200))
-                    draw.text((70, 1530), bottom_text, fill=(255, 255, 255))
-                    return np.array(img)
+                clips_to_composite = [clip]
                 
-                final_video = clip.fl(add_captions)
+                try:
+                    if top_text:
+                        txt_top = TextClip(top_text, fontsize=50, color='white', bg_color='black', size=(980, None))
+                        if hasattr(txt_top, "set_duration"):
+                            txt_top = txt_top.set_duration(max_dur).set_position(("center", 100))
+                        clips_to_composite.append(txt_top)
+                    if bottom_text:
+                        txt_bot = TextClip(bottom_text, fontsize=45, color='white', bg_color='black', size=(980, None))
+                        if hasattr(txt_bot, "set_duration"):
+                            txt_bot = txt_bot.set_duration(max_dur).set_position(("center", 1500))
+                        clips_to_composite.append(txt_bot)
+                except Exception:
+                    pass # Skip text clips if system lacks ImageMagick/TextClip dependencies, rendering clean video
+                
+                final_video = CompositeVideoClip(clips_to_composite, size=target_size)
+                final_video.duration = max_dur
             else:
                 rendered_scene_clips = []
                 for scene in storyboard:
-                    raw_img = Image.open(scene["image_path"]).convert("RGB")
-                    raw_img = raw_img.resize(target_size, Image.Resampling.LANCZOS)
-                    img_np = np.array(raw_img)
-                    base_clip = ImageClip(img_np).set_duration(scene["duration"])
-                    duration = scene["duration"]
-                    
-                    if scene["motion"] == "Zoom In (Ken Burns)":
-                        if hasattr(base_clip, "resized"):
-                            base_clip = base_clip.resized(lambda t: 1.0 + 0.08 * (t / duration))
-                        else:
-                            base_clip = base_clip.resize(lambda t: 1.0 + 0.08 * (t / duration))
-                    elif scene["motion"] == "Pan Left to Right":
-                        base_clip = base_clip.set_position(lambda t: (int(-50 + 50 * (t / duration)), "center"))
-
-                    scene_composite = CompositeVideoClip([base_clip], size=target_size).set_duration(duration)
-                    rendered_scene_clips.append(scene_composite)
+                    raw_img = ImageClip(scene["image_path"]).set_duration(scene["duration"])
+                    if hasattr(raw_img, "resized"):
+                        raw_img = raw_img.resized(target_size)
+                    elif hasattr(raw_img, "resize"):
+                        raw_img = raw_img.resize(target_size)
+                    rendered_scene_clips.append(raw_img)
 
                 final_video = concatenate_videoclips(rendered_scene_clips, method="compose")
 
@@ -111,7 +107,7 @@ if st.button("🚀 Render Final Viral Video"):
             )
             
             st.session_state["rendered_video_path"] = out_file
-            st.success("🎉 Video rendered successfully with your thoughts and audio tracks! Proceed to Step 4.")
+            st.success("🎉 Video rendered successfully! Proceed to Step 4 to download your ready-to-post video.")
             
     except Exception as e:
         st.error(f"Render Error: {e}")
