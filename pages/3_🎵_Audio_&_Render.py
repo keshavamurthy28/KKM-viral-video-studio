@@ -26,7 +26,7 @@ if not storyboard_mode and not social_config:
     storyboard_mode = "social"
 
 if not storyboard_mode and not storyboard:
-    st.warning("⚠️ No configuration found. Please complete **Step 2: Storyboard & Animation** first and click save.")
+    st.warning("⚠️ No configuration found. Please complete Step 2 first.")
 else:
     st.subheader("Audio Settings")
     bgm_volume = st.slider("Background Music Volume", 0.0, 1.0, 0.2)
@@ -37,10 +37,9 @@ else:
 
     if st.button("🚀 Render Final Video"):
         try:
-            with st.spinner("Processing video, applying edits, and rendering..."):
+            with st.spinner("Processing video and rendering..."):
                 final_video = None
                 
-                # --- WORKFLOW A: SOCIAL MEDIA VIDEO ---
                 if storyboard_mode == "social" or social_config:
                     video_url = social_config.get("video_url") if social_config else st.session_state.get("selected_video_url")
                     
@@ -52,11 +51,9 @@ else:
                     if video_url:
                         ydl_opts = {
                             'outtmpl': out_path,
-                            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-                            'merge_output_format': 'mp4',
+                            'format': 'best',
                             'noplaylist': True,
                             'quiet': True,
-                            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                         }
                         try:
                             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -67,7 +64,7 @@ else:
                             download_success = False
                             
                     if not download_success:
-                        st.info("ℹ️ YouTube link restricted. Using high-definition sample clip for testing!")
+                        st.info("ℹ️ Using reliable sample video clip for testing!")
                         import urllib.request
                         sample_url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
                         urllib.request.urlretrieve(sample_url, out_path)
@@ -75,16 +72,12 @@ else:
                     clip = VideoFileClip(out_path)
                     clip = clip.resize(target_size)
                     final_video = clip
-
-                # --- WORKFLOW B: CUSTOM IMAGE STORYBOARD ---
                 else:
                     rendered_scene_clips = []
-                    
                     for scene in storyboard:
                         raw_img = Image.open(scene["image_path"]).convert("RGB")
                         raw_img = raw_img.resize(target_size, Image.Resampling.LANCZOS)
                         img_np = np.array(raw_img)
-                        
                         base_clip = ImageClip(img_np).set_duration(scene["duration"])
                         duration = scene["duration"]
                         
@@ -96,18 +89,12 @@ else:
                             base_clip = base_clip.set_position(lambda t: (int(0 - 50 * (t / duration)), "center"))
 
                         layers = [base_clip]
-                        
                         if scene.get("cartoon_path"):
                             cartoon_img = Image.open(scene["cartoon_path"]).convert("RGBA")
                             c_width = int(target_size[0] * 0.4)
                             c_height = int(cartoon_img.height * (c_width / cartoon_img.width))
                             cartoon_img = cartoon_img.resize((c_width, c_height), Image.Resampling.LANCZOS)
-                            
-                            cartoon_clip = (
-                                ImageClip(np.array(cartoon_img), transparent=True)
-                                .set_duration(duration)
-                                .set_position(("center", "bottom"))
-                            )
+                            cartoon_clip = ImageClip(np.array(cartoon_img), transparent=True).set_duration(duration).set_position(("center", "bottom"))
                             layers.append(cartoon_clip)
                             
                         scene_composite = CompositeVideoClip(layers, size=target_size).set_duration(duration)
@@ -115,7 +102,6 @@ else:
 
                     final_video = concatenate_videoclips(rendered_scene_clips, method="compose")
 
-                # --- MULTI-TRACK AUDIO MIXING ---
                 audio_tracks = []
                 for a in assets.get("audio", []):
                     if a["type"] == "voiceover":
@@ -140,4 +126,11 @@ else:
                     codec="libx264", 
                     audio_codec="aac",
                     threads=2,
-                    preset="ultraf
+                    preset="ultrafast"
+                )
+                
+                st.session_state["rendered_video_path"] = out_file
+                st.success("🎉 Video rendered successfully! Proceed to Step 4 to download.")
+                
+        except Exception as e:
+            st.error(f"Render Error: {e}")
