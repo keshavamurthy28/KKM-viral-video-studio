@@ -1,97 +1,62 @@
 import streamlit as st
 
-st.title("📜 Step 2: Storyboard, Social Video & Animation Engine")
-st.caption("Choose your source workflow: edit an imported social video or build a custom image storyboard with advanced motion effects.")
+st.title("🎞️ Step 2: Remix & Storyboard Studio")
+st.caption("Configure your commentary thoughts or custom storyboard scenes.")
 
-# Retrieve assets and selections from session state
-assets = st.session_state.get("assets", {"images": [], "cartoons": []})
-imported_video_url = st.session_state.get("selected_video_url", None)
+assets = st.session_state.get("assets", {"videos": [], "images": []})
 
-# Selection mode: Social Video vs. Custom Image Storyboard
-source_mode = st.radio(
-    "Select Your Master Content Source:",
-    ["🌐 Alter Imported Social Media Video", "🖼️ Build Custom Image Storyboard"],
-    index=0 if imported_video_url else 1
-)
+mode = st.radio("Select Creation Mode:", ["🔄 Remix Social Video with Thoughts", "🎨 Custom Image Storyboard"])
+st.session_state["creation_mode"] = mode
 
-if source_mode == "🌐 Alter Imported Social Media Video":
-    st.subheader("Alter & Customize Imported Social Video")
+if mode == "🔄 Remix Social Video with Thoughts":
+    st.subheader("Social Video Commentary & Thought Overlays")
     
-    if not imported_video_url:
-        st.warning("No social video imported yet. Go to **Step 1: Asset Vault** and import a video from the Social Finder tab.")
+    video_list = assets.get("videos", [])
+    if not video_list:
+        st.warning("⚠️ No videos found in Vault. Please import a video URL or upload one in Step 1.")
     else:
-        st.success(f"Active Social Video Loaded: `{imported_video_url}`")
-        st.video(imported_video_url)
+        video_names = [v["name"] for v in video_list]
+        selected_name = st.selectbox("Select Source Video from Vault", video_names)
+        selected_vid = next(v for v in video_list if v["name"] == selected_name)
+        st.session_state["remix_video_path"] = selected_vid["path"]
         
-        st.markdown("---")
-        st.subheader("Edit & Overlay Configurations")
+        st.video(selected_vid["path"])
         
-        social_caption = st.text_input("Main Retention Hook / Text Overlay", "Wait till the end... 🤯")
-        text_color = st.color_picker("Text Overlay Color", "#FFFFFF")
-        font_size = st.slider("Font Size", 24, 72, 48)
+        st.markdown("### 💬 Your Thoughts & Commentary Script")
+        top_hook = st.text_input("Top Retention Hook (Headline)", "Wait until you see this part... 🤯")
+        bottom_thought = st.text_area("Your Core Thoughts / Commentary Script", "Here is my perspective on why this changes everything...")
+        trim_duration = st.slider("Clip Trim Duration (Seconds)", 3, 60, 15)
         
-        # Cartoon/Character overlay selection
-        cartoon_names = ["None"] + [c["name"] for c in assets.get("cartoons", [])]
-        selected_cartoon = st.selectbox("Select Character / Cartoon Cutout Overlay", cartoon_names)
-        cartoon_path = None
-        if selected_cartoon != "None":
-            cartoon_path = next(c["path"] for c in assets["cartoons"] if c["name"] == selected_cartoon)
-            
-        if st.button("Save Social Video Alteration Settings"):
-            st.session_state["storyboard_mode"] = "social"
-            st.session_state["social_edit_config"] = {
-                "video_url": imported_video_url,
-                "caption": social_caption,
-                "color": text_color,
-                "font_size": font_size,
-                "cartoon_path": cartoon_path
-            }
-            st.success("Social video configurations saved! Proceed to Step 3 for Audio & Rendering.")
+        st.session_state["remix_config"] = {
+            "top_hook": top_hook,
+            "bottom_thought": bottom_thought,
+            "duration": trim_duration
+        }
+        
+        if st.button("Save Remix Configuration"):
+            st.success("Remix configuration saved! Proceed to Step 3.")
 
 else:
-    st.subheader("Custom Image Storyboard Sequence")
-    
-    if not assets["images"]:
-        st.warning("No scene images found in Asset Vault. Please upload visuals in Step 1.")
+    st.subheader("Custom Image Storyboard Builder")
+    images_list = assets.get("images", [])
+    if not images_list:
+        st.warning("⚠️ Please upload background images in Step 1 first.")
     else:
-        scene_count = st.number_input("Number of Story Scenes:", min_value=1, max_value=10, value=len(assets["images"]))
-        
         storyboard = []
-        for i in range(int(scene_count)):
-            st.markdown(f"#### Scene {i+1}")
-            col_img, col_cfg = st.columns([1, 2])
-            
-            with col_img:
-                img_names = [img["name"] for img in assets["images"]]
-                selected_img_name = st.selectbox(f"Visual for Scene {i+1}", img_names, key=f"img_{i}")
-                selected_img_path = next(img["path"] for img in assets["images"] if img["name"] == selected_img_name)
-                st.image(selected_img_path, width=150)
-                
-            with col_cfg:
-                duration = st.slider(f"Duration (seconds)", 1.0, 10.0, 3.0, key=f"dur_{i}")
-                caption = st.text_input(f"Subtitle Text", f"Caption {i+1}", key=f"txt_{i}")
-                motion = st.selectbox(
-                    f"Camera Motion Effect", 
-                    ["Zoom In (Ken Burns)", "Pan Left to Right", "Pan Right to Left", "Static Focus"], 
-                    key=f"mot_{i}"
-                )
-                
-                cartoon_names = ["None"] + [c["name"] for c in assets.get("cartoons", [])]
-                selected_cartoon = st.selectbox(f"Character Overlay", cartoon_names, key=f"cart_{i}")
-                cartoon_path = None
-                if selected_cartoon != "None":
-                    cartoon_path = next(c["path"] for c in assets["cartoons"] if c["name"] == selected_cartoon)
-                
-            storyboard.append({
-                "image_path": selected_img_path,
-                "duration": duration,
-                "caption": caption,
-                "motion": motion,
-                "cartoon_path": cartoon_path
-            })
-            st.markdown("---")
-            
-        if st.button("Save Custom Storyboard Settings"):
-            st.session_state["storyboard_mode"] = "custom"
-            st.session_state["storyboard"] = storyboard
-            st.success("Custom storyboard built successfully! Move to Step 3.")
+        for i, img in enumerate(images_list):
+            with st.expander(f"Scene {i+1}: {img['name']}"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    duration = st.slider(f"Duration (s) {i}", 2, 10, 4, key=f"dur_{i}")
+                    motion = st.selectbox(f"Motion Effect {i}", ["Zoom In (Ken Burns)", "Pan Left to Right", "Static"], key=f"mot_{i}")
+                with col2:
+                    caption = st.text_input(f"Scene Text / Thought {i}", key=f"cap_{i}")
+                storyboard.append({
+                    "image_path": img["path"],
+                    "duration": duration,
+                    "motion": motion,
+                    "caption": caption
+                })
+        st.session_state["storyboard"] = storyboard
+        if st.button("Save Storyboard"):
+            st.success("Storyboard saved successfully! Proceed to Step 3.")
