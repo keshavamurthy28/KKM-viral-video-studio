@@ -36,7 +36,13 @@ if st.button("🚀 Render Final Viral Video"):
             if creation_mode == "🔄 Remix Social Video with Thoughts" and remix_video_path:
                 clip = VideoFileClip(remix_video_path)
                 max_dur = min(clip.duration, remix_config.get("duration", 15))
-                clip = clip.subclip(0, max_dur)
+                
+                # Universal subclip/subclipped compatibility check
+                if hasattr(clip, "subclipped"):
+                    clip = clip.subclipped(0, max_dur)
+                elif hasattr(clip, "subclip"):
+                    clip = clip.subclip(0, max_dur)
+                    
                 clip = clip.resize(target_size)
                 
                 top_text = remix_config.get("top_hook", "")
@@ -83,16 +89,17 @@ if st.button("🚀 Render Final Viral Video"):
             # --- MULTI-TRACK AUDIO MIXING ---
             audio_tracks = []
             for a in assets.get("audio", []):
-                if a["type"] == "voiceover":
-                    voice_clip = AudioFileClip(a["path"]).volumex(voice_volume)
-                    audio_tracks.append(voice_clip)
-                elif a["type"] == "bgm":
-                    bgm_clip = AudioFileClip(a["path"]).volumex(bgm_volume)
-                    if bgm_clip.duration < final_video.duration:
-                        bgm_clip = bgm_clip.loop(duration=final_video.duration)
-                    else:
-                        bgm_clip = bgm_clip.set_duration(final_video.duration)
-                    audio_tracks.append(bgm_clip)
+                if a.get("path") and os.path.exists(a["path"]):
+                    if a["type"] == "voiceover":
+                        voice_clip = AudioFileClip(a["path"]).volumex(voice_volume)
+                        audio_tracks.append(voice_clip)
+                    elif a["type"] == "bgm":
+                        bgm_clip = AudioFileClip(a["path"]).volumex(bgm_volume)
+                        if bgm_clip.duration < final_video.duration:
+                            bgm_clip = bgm_clip.loop(duration=final_video.duration)
+                        else:
+                            bgm_clip = bgm_clip.set_duration(final_video.duration)
+                        audio_tracks.append(bgm_clip)
 
             if audio_tracks:
                 final_audio = CompositeAudioClip(audio_tracks).set_duration(final_video.duration)
@@ -109,7 +116,7 @@ if st.button("🚀 Render Final Viral Video"):
             )
             
             st.session_state["rendered_video_path"] = out_file
-            st.success("🎉 Video rendered successfully with your thoughts and commentary! Proceed to Step 4.")
+            st.success("🎉 Video rendered successfully with your thoughts and audio tracks! Proceed to Step 4.")
             
     except Exception as e:
         st.error(f"Render Error: {e}")
