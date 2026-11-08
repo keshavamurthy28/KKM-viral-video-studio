@@ -2,7 +2,6 @@ import streamlit as st
 import tempfile
 import numpy as np
 import os
-import shutil
 from PIL import Image
 
 try:
@@ -38,7 +37,7 @@ else:
 
     if st.button("🚀 Render Final Video"):
         try:
-            with st.spinner("Downloading social media video, muxing streams, and rendering..."):
+            with st.spinner("Processing video, applying edits, and rendering..."):
                 final_video = None
                 
                 # --- WORKFLOW A: SOCIAL MEDIA VIDEO ---
@@ -51,15 +50,10 @@ else:
                     
                     download_success = False
                     if video_url:
-                        # Strictly target standard H.264 mp4 and merge audio/video streams cleanly
                         ydl_opts = {
                             'outtmpl': out_path,
                             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
                             'merge_output_format': 'mp4',
-                            'postprocessors': [{
-                                'key': 'FFmpegVideoConvertor',
-                                'preferedformat': 'mp4',
-                            }],
                             'noplaylist': True,
                             'quiet': True,
                             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -73,7 +67,7 @@ else:
                             download_success = False
                             
                     if not download_success:
-                        st.info("ℹ️ YouTube stream protected or unavailable. Switching to reliable high-definition test source!")
+                        st.info("ℹ️ YouTube link restricted. Using high-definition sample clip for testing!")
                         import urllib.request
                         sample_url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
                         urllib.request.urlretrieve(sample_url, out_path)
@@ -111,3 +105,39 @@ else:
                             
                             cartoon_clip = (
                                 ImageClip(np.array(cartoon_img), transparent=True)
+                                .set_duration(duration)
+                                .set_position(("center", "bottom"))
+                            )
+                            layers.append(cartoon_clip)
+                            
+                        scene_composite = CompositeVideoClip(layers, size=target_size).set_duration(duration)
+                        rendered_scene_clips.append(scene_composite)
+
+                    final_video = concatenate_videoclips(rendered_scene_clips, method="compose")
+
+                # --- MULTI-TRACK AUDIO MIXING ---
+                audio_tracks = []
+                for a in assets.get("audio", []):
+                    if a["type"] == "voiceover":
+                        voice_clip = AudioFileClip(a["path"]).volumex(voice_volume)
+                        audio_tracks.append(voice_clip)
+                    elif a["type"] == "bgm":
+                        bgm_clip = AudioFileClip(a["path"]).volumex(bgm_volume)
+                        if bgm_clip.duration < final_video.duration:
+                            bgm_clip = bgm_clip.loop(duration=final_video.duration)
+                        else:
+                            bgm_clip = bgm_clip.set_duration(final_video.duration)
+                        audio_tracks.append(bgm_clip)
+
+                if audio_tracks:
+                    final_audio = CompositeAudioClip(audio_tracks).set_duration(final_video.duration)
+                    final_video = final_video.set_audio(final_audio)
+
+                out_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4").name
+                final_video.write_videofile(
+                    out_file, 
+                    fps=24, 
+                    codec="libx264", 
+                    audio_codec="aac",
+                    threads=2,
+                    preset="ultraf
