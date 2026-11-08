@@ -37,7 +37,7 @@ else:
             with st.spinner("Processing video, applying edits, and rendering..."):
                 final_video = None
                 
-                # --- WORKFLOW A: ALTERING SOCIAL MEDIA VIDEO ---
+                # --- WORKFLOW A: SOCIAL MEDIA VIDEO ---
                 if storyboard_mode == "social" and social_config:
                     video_url = social_config.get("video_url")
                     
@@ -54,7 +54,6 @@ else:
                         except Exception:
                             download_success = False
                             
-                    # Fallback to a guaranteed working public sample video if download fails
                     if not download_success:
                         st.info("ℹ️ YouTube link restricted. Automatically switching to a reliable sample video clip for testing!")
                         sample_url = "https://www.w3schools.com/html/mov_bbb.mp4"
@@ -82,15 +81,3 @@ else:
                             base_clip = base_clip.set_position(lambda t: (int(-50 + 50 * (t / duration)), "center"))
                         elif scene["motion"] == "Pan Right to Left":
                             base_clip = base_clip.set_position(lambda t: (int(0 - 50 * (t / duration)), "center"))
-
-                        layers = [base_clip]
-                        
-                        if scene["cartoon_path"]:
-                            cartoon_img = Image.open(scene["cartoon_path"]).convert("RGBA")
-                            c_width = int(target_size[0] * 0.4)
-                            c_height = int(cartoon_img.height * (c_width / cartoon_img.width))
-                            cartoon_img = cartoon_img.resize((c_width, c_height), Image.Resampling.LANCZOS)
-                            
-                            cartoon_clip = (
-                                ImageClip(np.array(cartoon_img), transparent=True)
-                                .set_duration(duration)
