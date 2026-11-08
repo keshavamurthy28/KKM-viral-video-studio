@@ -7,12 +7,12 @@ from PIL import Image
 try:
     from moviepy.editor import (
         ImageClip, VideoFileClip, CompositeVideoClip, AudioFileClip, 
-        CompositeAudioClip, concatenate_videoclips, ColorClip
+        CompositeAudioClip, concatenate_videoclips
     )
 except ImportError:
     from moviepy import (
         ImageClip, VideoFileClip, CompositeVideoClip, AudioFileClip, 
-        CompositeAudioClip, concatenate_videoclips, ColorClip
+        CompositeAudioClip, concatenate_videoclips
     )
 
 st.title("🎵 Step 3: Multi-Track Audio & High-End Render Engine")
@@ -37,7 +37,7 @@ else:
 
     if st.button("🚀 Render Final Video"):
         try:
-            with st.spinner("Processing video and rendering..."):
+            with st.spinner("Downloading YouTube video and rendering full edits..."):
                 final_video = None
                 
                 if storyboard_mode == "social" or social_config:
@@ -47,30 +47,23 @@ else:
                     temp_dir = tempfile.mkdtemp()
                     out_path = os.path.join(temp_dir, "downloaded_input.mp4")
                     
-                    download_success = False
-                    if video_url:
-                        ydl_opts = {
-                            'outtmpl': out_path,
-                            'format': 'best',
-                            'noplaylist': True,
-                            'quiet': True,
-                        }
-                        try:
-                            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                                ydl.download([video_url])
-                            if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
-                                download_success = True
-                        except Exception:
-                            download_success = False
+                    # Robust yt-dlp extractor options bypassing bot blocks via client simulation
+                    ydl_opts = {
+                        'outtmpl': out_path,
+                        'format': 'best[ext=mp4]/best',
+                        'noplaylist': True,
+                        'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
+                    }
+                    
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        ydl.download([video_url])
                             
-                    if not download_success:
-                        st.info("ℹ️ YouTube link restricted. Generating local canvas clip instantly with zero network dependencies!")
-                        # Generate a clean 5-second background clip locally (100% reliable)
-                        final_video = ColorClip(size=target_size, color=(20, 20, 30), duration=5.0)
-                    else:
-                        clip = VideoFileClip(out_path)
-                        clip = clip.resize(target_size)
-                        final_video = clip
+                    if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
+                        raise Exception("Downloaded video file is empty or missing.")
+                        
+                    clip = VideoFileClip(out_path)
+                    clip = clip.resize(target_size)
+                    final_video = clip
                 else:
                     rendered_scene_clips = []
                     for scene in storyboard:
@@ -129,7 +122,7 @@ else:
                 )
                 
                 st.session_state["rendered_video_path"] = out_file
-                st.success("🎉 Video rendered successfully! Proceed to Step 4 to download.")
+                st.success("🎉 Full YouTube video processed and rendered successfully! Proceed to Step 4.")
                 
         except Exception as e:
             st.error(f"Render Error: {e}")
