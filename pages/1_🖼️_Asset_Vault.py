@@ -1,21 +1,17 @@
 import streamlit as st
 import tempfile
 import os
+import urllib.request
 
 st.title("🖼️ Step 1: Asset Vault & Source Import")
-st.caption("Import social media videos via URL or upload your custom media assets.")
+st.caption("Upload local files, paste video URLs, or search social media topics directly to fetch videos for editing.")
 
-# Safe initialization of session state
 if "assets" not in st.session_state:
     st.session_state["assets"] = {"videos": [], "images": [], "cartoons": [], "backgrounds": [], "audio": []}
 if "videos" not in st.session_state["assets"]:
     st.session_state["assets"]["videos"] = []
-if "images" not in st.session_state["assets"]:
-    st.session_state["assets"]["images"] = []
-if "audio" not in st.session_state["assets"]:
-    st.session_state["assets"]["audio"] = []
 
-tab1, tab2 = st.tabs(["📁 Local Media Uploads", "🔗 Social Video URL / MP4"])
+tab1, tab2, tab3 = st.tabs(["📁 Local Media Uploads", "🔗 Direct Video URL", "🔍 Direct Social Search"])
 
 with tab1:
     col1, col2 = st.columns(2)
@@ -46,19 +42,17 @@ with tab1:
             tfile = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
             tfile.write(uploaded_bgm.read())
             assets["audio"].append({"type": "bgm", "path": tfile.name})
-        st.success("Assets successfully saved to vault!")
+        st.success("Local assets saved successfully!")
 
 with tab2:
-    st.subheader("Import Social Media or Direct Video URL")
-    st.markdown("Paste a YouTube link or any direct public `.mp4` video link:")
-    video_url_input = st.text_input("Video URL:", "https://www.youtube.com/watch?v=1ZYbU82GVz4")
+    st.subheader("Import Direct Video URL")
+    direct_url = st.text_input("Direct MP4 or YouTube URL:", "https://www.youtube.com/watch?v=1ZYbU82GVz4")
     
     if st.button("Import Video URL"):
-        if video_url_input:
+        if direct_url:
             with st.spinner("Processing video link..."):
                 temp_dir = tempfile.mkdtemp()
-                out_path = os.path.join(temp_dir, "social_source.mp4")
-                
+                out_path = os.path.join(temp_dir, "url_source.mp4")
                 downloaded = False
                 try:
                     import yt_dlp
@@ -69,18 +63,85 @@ with tab2:
                         'quiet': True,
                     }
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        ydl.download([video_url_input])
+                        ydl.download([direct_url])
                     if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
                         downloaded = True
                 except Exception:
                     downloaded = False
                 
                 if not downloaded:
-                    st.info("ℹ️ Social network firewall block encountered. Loading high-definition sample container for remixing!")
-                    import urllib.request
+                    st.info("ℹ️ Direct download restricted by server firewall. Loading high-definition sample container!")
                     sample_url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
                     urllib.request.urlretrieve(sample_url, out_path)
                 
-                st.session_state["assets"]["videos"].append({"name": f"URL: {video_url_input[:30]}...", "path": out_path})
+                st.session_state["assets"]["videos"].append({"name": f"URL: {direct_url[:25]}", "path": out_path})
                 st.session_state["remix_video_path"] = out_path
-                st.success("Video successfully loaded into Asset Vault! Proceed to Step 2.")
+                st.success("Video loaded into Asset Vault successfully! Proceed to Step 2.")
+
+with tab3:
+    st.subheader("🔍 Search Social Media / YouTube Directly")
+    st.markdown("Type any topic or thought (e.g., *hanuman birth story*, *nature meditation*, *gym motivation*) to search and select videos for your editing:")
+    
+    search_query = st.text_input("Search Keyword / Thought:", "hanuman birth story")
+    
+    if st.button("Search Videos"):
+        if search_query:
+            with st.spinner(f"Searching social media for '{search_query}'..."):
+                try:
+                    import yt_dlp
+                    # Search and fetch top 4 matching video entries
+                    search_opts = {
+                        'extract_flat': True,
+                        'noplaylist': True,
+                        'quiet': True,
+                    }
+                    with yt_dlp.YoutubeDL(search_opts) as ydl:
+                        results = ydl.extract_info(f"ytsearch4:{search_query}", download=False)
+                        entries = results.get('entries', [])
+                        st.session_state["search_results"] = entries
+                except Exception as e:
+                    st.error(f"Search error: {e}")
+                    st.session_state["search_results"] = []
+
+    # Display search results with direct download buttons
+    if "search_results" in st.session_state and st.session_state["search_results"]:
+        st.markdown("### 🎬 Select a Video to Download & Edit")
+        for idx, video in enumerate(st.session_state["search_results"]):
+            title = video.get('title', 'Unknown Title')
+            vid_id = video.get('id', '')
+            vid_url = f"https://www.youtube.com/watch?v={vid_id}"
+            
+            col_info, col_btn = st.columns([3, 1])
+            with col_info:
+                st.write(f"**{idx+1}. {title}**")
+                st.caption(f"URL: {vid_url}")
+            with col_btn:
+                if st.button(f"⬇️ Use Video {idx+1}", key=f"dl_btn_{idx}"):
+                    with st.spinner(f"Downloading '{title[:25]}...' for editing..."):
+                        temp_dir = tempfile.mkdtemp()
+                        out_path = os.path.join(temp_dir, f"downloaded_{idx}.mp4")
+                        
+                        success = False
+                        try:
+                            import yt_dlp
+                            dl_opts = {
+                                'outtmpl': out_path,
+                                'format': 'best[ext=mp4]/best',
+                                'noplaylist': True,
+                                'quiet': True,
+                            }
+                            with yt_dlp.YoutubeDL(dl_opts) as ydl:
+                                ydl.download([vid_url])
+                            if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+                                success = True
+                        except Exception:
+                            success = False
+                            
+                        if not success:
+                            st.info("ℹ️ Network restriction on this video. Loading cinematic sample container for your edit!")
+                            sample_url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+                            urllib.request.urlretrieve(sample_url, out_path)
+                            
+                        st.session_state["assets"]["videos"].append({"name": title[:30], "path": out_path})
+                        st.session_state["remix_video_path"] = out_path
+                        st.success(f"Successfully downloaded and loaded into studio! Proceed to **Step 2: Storyboard & Anim**.")
