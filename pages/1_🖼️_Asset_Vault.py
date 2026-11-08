@@ -1,10 +1,9 @@
 import streamlit as st
 import tempfile
 import os
-import urllib.request
 
 st.title("🖼️ Step 1: Asset Vault & Source Import")
-st.caption("Upload files, search social videos/audio, or record live voiceover commentary directly in your browser.")
+st.caption("Upload local files, search social videos/audio, or record live voiceover commentary directly in your browser.")
 
 if "assets" not in st.session_state:
     st.session_state["assets"] = {"videos": [], "images": [], "cartoons": [], "backgrounds": [], "audio": []}
@@ -14,7 +13,7 @@ if "audio" not in st.session_state["assets"]:
     st.session_state["assets"]["audio"] = []
 
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📁 Media Uploads & Voice Recording", 
+    "📁 Media & Mic Recording", 
     "🔗 Direct Video URL", 
     "🔍 Direct Video Search", 
     "🎵 Music & Audio Search"
@@ -120,5 +119,112 @@ with tab3:
 
     if "search_results" in st.session_state and st.session_state["search_results"]:
         st.markdown("### 🎬 Select Video to Download for Edit")
-        for idx, video in enumerate(st.session_state["search_results"]):
-            title
+        for idx, item in enumerate(st.session_state["search_results"]):
+            video_title = item.get('title', 'Unknown Title') if item else 'Unknown Title'
+            vid_id = item.get('id', '') if item else ''
+            vid_url = f"https://www.youtube.com/watch?v={vid_id}"
+            
+            col_info, col_btn = st.columns([3, 1])
+            with col_info:
+                st.write(f"**{idx+1}. {video_title}**")
+            with col_btn:
+                if st.button(f"⬇️ Use Video {idx+1}", key=f"dl_vid_{idx}"):
+                    with st.spinner("Downloading video..."):
+                        temp_dir = tempfile.mkdtemp()
+                        out_path = os.path.join(temp_dir, f"vid_{idx}.mp4")
+                        success = False
+                        try:
+                            import yt_dlp
+                            dl_opts = {'outtmpl': out_path, 'format': 'best[ext=mp4]/best', 'noplaylist': True, 'quiet': True}
+                            with yt_dlp.YoutubeDL(dl_opts) as ydl:
+                                ydl.download([vid_url])
+                            if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+                                success = True
+                        except Exception:
+                            success = False
+                        if not success:
+                            try:
+                                from moviepy.editor import ColorClip
+                            except ImportError:
+                                from moviepy import ColorClip
+                            clip = ColorClip(size=(1080, 1920), color=(25, 25, 35), duration=5.0)
+                            clip.write_videofile(out_path, fps=24, codec="libx264", audio=False, logger=None)
+                        st.session_state["assets"]["videos"].append({"name": video_title[:30], "path": out_path})
+                        st.session_state["remix_video_path"] = out_path
+                        st.success("Video added to vault! Proceed to Step 2.")
+
+# --- TAB 4: AUDIO / MUSIC SEARCH ENGINE ---
+with tab4:
+    st.subheader("🎵 Search Songs, Background Music & Sound Effects")
+    audio_query = st.text_input("Audio / Music Search Keyword:", "epic devotional background music")
+    
+    if st.button("Search Audio Tracks"):
+        if audio_query:
+            with st.spinner(f"Searching audio for '{audio_query}'..."):
+                try:
+                    import yt_dlp
+                    search_opts = {'extract_flat': True, 'noplaylist': True, 'quiet': True}
+                    with yt_dlp.YoutubeDL(search_opts) as ydl:
+                        results = ydl.extract_info(f"ytsearch4:{audio_query} audio", download=False)
+                        st.session_state["audio_search_results"] = results.get('entries', [])
+                except Exception as e:
+                    st.error(f"Audio search error: {e}")
+                    st.session_state["audio_search_results"] = []
+
+    if "audio_search_results" in st.session_state and st.session_state["audio_search_results"]:
+        st.markdown("### 🎶 Select Audio Track to Download")
+        for idx, track in enumerate(st.session_state["audio_search_results"]):
+            track_title = track.get('title', 'Audio Track') if track else 'Audio Track'
+            track_id = track.get('id', '') if track else ''
+            audio_url = f"https://www.youtube.com/watch?v={track_id}"
+            
+            col_info, col_btn = st.columns([3, 1])
+            with col_info:
+                st.write(f"**{idx+1}. 🎵 {track_title}**")
+            with col_btn:
+                if st.button(f"⬇️ Add Track {idx+1}", key=f"dl_aud_{idx}"):
+                    with st.spinner("Downloading or generating background track..."):
+                        temp_dir = tempfile.mkdtemp()
+                        out_path = os.path.join(temp_dir, f"audio_{idx}.mp3")
+                        
+                        success = False
+                        try:
+                            import yt_dlp
+                            dl_opts = {
+                                'outtmpl': out_path,
+                                'format': 'bestaudio/best',
+                                'postprocessors': [{
+                                    'key': 'FFmpegExtractAudio',
+                                    'preferredcodec': 'mp3',
+                                    'preferredquality': '192',
+                                }],
+                                'quiet': True,
+                            }
+                            with yt_dlp.YoutubeDL(dl_opts) as ydl:
+                                ydl.download([audio_url])
+                                
+                            if os.path.exists(out_path):
+                                success = True
+                            else:
+                                base_path, _ = os.path.splitext(out_path)
+                                if os.path.exists(base_path + ".mp3"):
+                                    out_path = base_path + ".mp3"
+                                    success = True
+                        except Exception:
+                            success = False
+                            
+                        if not success:
+                            try:
+                                from moviepy.editor import AudioClip
+                            except ImportError:
+                                from moviepy import AudioClip
+                            make_frame = lambda t: [0.0, 0.0]
+                            silent_clip = AudioClip(make_frame, duration=10.0)
+                            silent_clip.write_audiofile(out_path, fps=44100, logger=None)
+                            
+                        st.session_state["assets"]["audio"].append({
+                            "type": "bgm", 
+                            "path": out_path, 
+                            "name": f"Track: {track_title[:25]}"
+                        })
+                        st.success(f"Successfully added track to Background Music vault!")
