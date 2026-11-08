@@ -1,25 +1,36 @@
 import streamlit as st
-import requests
+import yt_dlp
 
-st.title("🔍 Step 1: Find Viral Video Footage")
+st.title("🔍 Step 1: Fetch Live Social Content")
 
-query = st.text_input("Search Pexels Stock Video (e.g., 'nature cinematic', 'cyberpunk city'):", "nature")
-pexels_api_key = st.text_input("Pexels API Key (Free from pexels.com/api):", type="password")
+search_query = st.text_input("Enter Topic to Search Social Media (e.g., 'ancient history facts'):", "mythology shorts")
 
-if st.button("Search Videos"):
-    if not pexels_api_key:
-        st.error("Please enter a free Pexels API key.")
-    else:
-        headers = {"Authorization": pexels_api_key}
-        url = f"https://api.pexels.com/videos/search?query={query}&per_page=5&orientation=portrait"
-        res = requests.get(url, headers=headers).json()
+if st.button("Search Social Platforms"):
+    with st.spinner("Searching and fetching top matching videos..."):
+        ydl_opts = {
+            'extract_flat': True,
+            'max_results': 5,
+            'default_search': 'ytsearch5'
+        }
         
-        if "videos" in res:
-            st.session_state["search_results"] = res["videos"]
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(f"ytsearch5:{search_query}", download=False)
+                if 'entries' in info:
+                    st.session_state["social_results"] = info['entries']
+        except Exception as e:
+            st.error(f"Error fetching content: {e}")
 
-if "search_results" in st.session_state:
-    for vid in st.session_state["search_results"]:
-        st.video(vid["video_files"][0]["link"])
-        if st.button(f"Select Video ID #{vid['id']}", key=vid["id"]):
-            st.session_state["selected_video_url"] = vid["video_files"][0]["link"]
-            st.success("Selected! Proceed to Step 2 in the sidebar.")
+if "social_results" in st.session_state:
+    st.success("Found matching social content!")
+    for item in st.session_state["social_results"]:
+        vid_title = item.get('title', 'Untitled')
+        vid_id = item.get('id', '')
+        vid_url = f"https://www.youtube.com/watch?v={vid_id}"
+        
+        st.write(f"**{vid_title}**")
+        st.video(vid_url)
+        
+        if st.button(f"Select This Video #{vid_id}", key=vid_id):
+            st.session_state["selected_video_url"] = vid_url
+            st.success("Selected! Proceed to Step 2 to edit.")
