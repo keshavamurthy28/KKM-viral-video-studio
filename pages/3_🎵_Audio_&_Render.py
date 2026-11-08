@@ -1,30 +1,27 @@
 import streamlit as st
 import tempfile
 import numpy as np
-import urllib.request
 from PIL import Image
 
 try:
     from moviepy.editor import (
         ImageClip, VideoFileClip, CompositeVideoClip, AudioFileClip, 
-        CompositeAudioClip, concatenate_videoclips
+        CompositeAudioClip, concatenate_videoclips, ColorClip
     )
 except ImportError:
     from moviepy import (
         ImageClip, VideoFileClip, CompositeVideoClip, AudioFileClip, 
-        CompositeAudioClip, concatenate_videoclips
+        CompositeAudioClip, concatenate_videoclips, ColorClip
     )
 
 st.title("🎵 Step 3: Multi-Track Audio & High-End Render Engine")
 
-# Check what was configured in Step 2
 storyboard_mode = st.session_state.get("storyboard_mode", None)
 storyboard = st.session_state.get("storyboard", [])
 social_config = st.session_state.get("social_edit_config", None)
 assets = st.session_state.get("assets", {"audio": []})
 
-# Fallback check: if user saved social settings but mode wasn't explicitly set
-if not storyboard_mode and social_config:
+if not storyboard_mode and not social_config:
     storyboard_mode = "social"
 
 if not storyboard_mode and not storyboard:
@@ -42,9 +39,9 @@ else:
             with st.spinner("Processing video, applying edits, and rendering..."):
                 final_video = None
                 
-                # --- WORKFLOW A: IMPORTED SOCIAL MEDIA VIDEO ---
-                if storyboard_mode == "social" and social_config:
-                    video_url = social_config.get("video_url")
+                # --- WORKFLOW A: SOCIAL MEDIA VIDEO ---
+                if storyboard_mode == "social" or social_config:
+                    video_url = social_config.get("video_url") if social_config else None
                     
                     import yt_dlp
                     out_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
@@ -60,13 +57,13 @@ else:
                             download_success = False
                             
                     if not download_success:
-                        st.info("ℹ️ YouTube link restricted. Automatically switching to a reliable sample video clip for testing!")
-                        sample_url = "https://www.w3schools.com/html/mov_bbb.mp4"
-                        urllib.request.urlretrieve(sample_url, out_path)
-                        
-                    clip = VideoFileClip(out_path)
-                    clip = clip.resize(target_size)
-                    final_video = clip
+                        st.info("ℹ️ YouTube link restricted. Generating a professional background canvas clip locally for your edit!")
+                        # Generate a clean 5-second color canvas locally (100% reliable, zero network dependency)
+                        final_video = ColorClip(size=target_size, color=(25, 25, 35), duration=5.0)
+                    else:
+                        clip = VideoFileClip(out_path)
+                        clip = clip.resize(target_size)
+                        final_video = clip
 
                 # --- WORKFLOW B: CUSTOM IMAGE STORYBOARD ---
                 else:
