@@ -1,7 +1,6 @@
 import streamlit as st
 import tempfile
 import numpy as np
-import urllib.request
 from PIL import Image
 
 try:
@@ -44,10 +43,14 @@ else:
                     import yt_dlp
                     out_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
                     
-                    # Robust yt-dlp options without strict format restrictions
+                    # Robust yt-dlp options with FFmpeg conversion to guarantee readable MP4
                     ydl_opts = {
                         'outtmpl': out_path,
-                        'format': 'mp4/best'
+                        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+                        'postprocessors': [{
+                            'key': 'FFmpegVideoConvertor',
+                            'expectedext': 'mp4',
+                        }],
                     }
                     
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
