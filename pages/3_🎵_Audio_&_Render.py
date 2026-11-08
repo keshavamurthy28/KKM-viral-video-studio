@@ -1,6 +1,7 @@
 import streamlit as st
 import tempfile
 import numpy as np
+import urllib.request
 from PIL import Image
 
 try:
@@ -43,14 +44,20 @@ else:
                     import yt_dlp
                     out_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
                     
-                    # Simplified and safe yt-dlp options
+                    # Use direct extractor or default universal download stream
                     ydl_opts = {
                         'outtmpl': out_path,
-                        'format': 'best',
+                        'format': 'bv*+ba/b'  # Fallback format selector
                     }
                     
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        ydl.download([video_url])
+                    try:
+                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                            ydl.download([video_url])
+                    except Exception:
+                        # Fallback if specific format fails: grab whatever stream is default
+                        ydl_opts = {'outtmpl': out_path}
+                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                            ydl.download([video_url])
                         
                     clip = VideoFileClip(out_path)
                     clip = clip.resize(target_size)
